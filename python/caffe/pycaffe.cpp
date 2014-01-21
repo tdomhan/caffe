@@ -15,6 +15,10 @@
 #define NPY_ARRAY_C_CONTIGUOUS NPY_C_CONTIGUOUS
 #endif
 
+#ifndef NPY_1_7_API_VERSION
+// PyArray_SetBaseObject was added in numpy 1.7
+#error numpy version 1.7 needed
+#endif
 
 using namespace caffe;
 using boost::python::extract;
