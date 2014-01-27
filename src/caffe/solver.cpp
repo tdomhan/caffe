@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -44,6 +46,9 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   LOG(INFO) << "Solving " << net_->name();
   PreSolve();
 
+  std::ofstream learning_curve_file;
+  learning_curve_file.open("learning_curve.txt");
+
   iter_ = 0;
   if (resume_file) {
     LOG(INFO) << "Restoring previous solver status from " << resume_file;
@@ -68,19 +73,23 @@ void Solver<Dtype>::Solve(const char* resume_file) {
     if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
       // We need to set phase to test before running.
       Caffe::set_phase(Caffe::TEST);
-      Test();
+      Dtype test_score = Test();
+      learning_curve_file << test_score << ",";
+      learning_curve_file.flush();
       Caffe::set_phase(Caffe::TRAIN);
     }
   }
   // After the optimization is done, always do a snapshot.
   iter_--;
   Snapshot();
+
+  learning_curve_file.close();
   LOG(INFO) << "Optimization Done.";
 }
 
 
 template <typename Dtype>
-void Solver<Dtype>::Test() {
+Dtype Solver<Dtype>::Test() {
   LOG(INFO) << "Testing net";
   NetParameter net_param;
   net_->ToProto(&net_param);
@@ -111,6 +120,7 @@ void Solver<Dtype>::Test() {
     LOG(INFO) << "Test score #" << i << ": "
         << test_score[i] / param_.test_iter();
   }
+  return test_score[0];
 }
 
 
@@ -163,6 +173,7 @@ Dtype SGDSolver<Dtype>::GetLearningRate() {
   if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
+    CHECK_GT(this->param_.stepsize(), 0) << "step size necessary.";
     int current_step = this->iter_ / this->param_.stepsize();
     rate = this->param_.base_lr() *
         pow(this->param_.gamma(), current_step);

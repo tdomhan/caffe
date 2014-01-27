@@ -30,7 +30,7 @@ class Solver {
   // written to disk together with the learned net.
   void Snapshot();
   // The test routine
-  void Test();
+  Dtype Test();
   virtual void SnapshotSolverState(SolverState* state) = 0;
   // The Restore function implements how one should restore the solver to a
   // previously snapshotted state. You should implement the RestoreSolverState()
