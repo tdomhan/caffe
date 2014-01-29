@@ -276,15 +276,11 @@ void SGDSolver<Dtype>::SnapshotSolverState(SolverState* state) {
 
 template <typename Dtype>
 void SGDSolver<Dtype>::RestoreSolverState(const SolverState& state) {
-//  CHECK_EQ(state.history_size(), history_.size())
-//      << "Incorrect length of history blobs.";
-  if(state.history_size() == history_.size()) {
-      LOG(INFO) << "SGDSolver: restoring history";
-      for (int i = 0; i < history_.size(); ++i) {
-        history_[i]->FromProto(state.history(i));
-      }
-  } else {
-      LOG(INFO) << "SGDSolver: Incorrect length of history blobs, ignoring the history!";
+  CHECK_EQ(state.history_size(), history_.size())
+      << "Incorrect length of history blobs.";
+  LOG(INFO) << "SGDSolver: restoring history";
+  for (int i = 0; i < history_.size(); ++i) {
+    history_[i]->FromProto(state.history(i));
   }
 }
 
