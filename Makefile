@@ -73,7 +73,7 @@ LIBRARY_DIRS += $(CUDA_LIB_DIR) $(MKL_LIB_DIR)
 LIBRARY_DIRS += $(SYSTEM_LIBRARY_DIRS)
 LIBRARIES := cudart cublas curand protobuf opencv_core opencv_highgui \
 	glog mkl_rt mkl_intel_thread leveldb snappy pthread boost_system \
-	opencv_imgproc png
+	opencv_imgproc
 PYTHON_LIBRARIES := boost_python python2.7
 WARNINGS := -Wall
 
