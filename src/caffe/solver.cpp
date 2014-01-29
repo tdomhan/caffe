@@ -120,7 +120,7 @@ Dtype Solver<Dtype>::Test() {
     LOG(INFO) << "Test score #" << i << ": "
         << test_score[i] / param_.test_iter();
   }
-  return test_score[0];
+  return test_score[0] / param_.test_iter();
 }
 
 
