@@ -7,6 +7,7 @@
 #include <cuda_runtime.h>
 
 #include <cstring>
+#include <cstdlib>
 
 #include "caffe/caffe.hpp"
 
@@ -17,6 +18,10 @@ int main(int argc, char** argv) {
   if (argc < 2) {
     LOG(ERROR) << "Usage: finetune_net solver_proto_file pretrained_net";
     return 0;
+  }
+
+  if(getenv("CAFFE_DEVICE_ID")) {
+    Caffe::SetDevice(atoi(getenv("CAFFE_DEVICE_ID")));
   }
 
   SolverParameter solver_param;
