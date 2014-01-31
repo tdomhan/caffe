@@ -17,6 +17,7 @@ class Solver {
   inline void Solve(const string resume_file) { Solve(resume_file.c_str()); }
   virtual ~Solver() {}
   inline Net<Dtype>* net() { return net_.get(); }
+  Dtype GetBestTestPerformance() {return best_test_performance_;}
 
  protected:
   // PreSolve is run before any solving iteration starts, allowing one to
@@ -40,6 +41,7 @@ class Solver {
 
   SolverParameter param_;
   int iter_;
+  Dtype best_test_performance_;
   shared_ptr<Net<Dtype> > net_;
   shared_ptr<Net<Dtype> > test_net_;
 

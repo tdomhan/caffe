@@ -13,6 +13,8 @@
 
 using namespace caffe;
 
+typedef float Dtype;
+
 int main(int argc, char** argv) {
   ::google::InitGoogleLogging(argv[0]);
   if (argc < 2) {
@@ -28,11 +30,13 @@ int main(int argc, char** argv) {
   ReadProtoFromTextFile(argv[1], &solver_param);
 
   LOG(INFO) << "Starting Optimization";
-  SGDSolver<float> solver(solver_param);
+  SGDSolver<Dtype> solver(solver_param);
   LOG(INFO) << "Loading from " << argv[2];
   solver.net()->CopyTrainedLayersFrom(string(argv[2]));
   solver.Solve();
   LOG(INFO) << "Optimization Done.";
+
+  LOG(INFO) << "Accuracy: " << solver.GetBestTestPerformance();
 
   return 0;
 }

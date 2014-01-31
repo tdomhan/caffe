@@ -12,7 +12,7 @@
 
 using namespace caffe;
 
-typedef double Dtype;
+typedef float Dtype;
 
 void read_file_list(const char* fname, std::vector<std::string>& file_list) {
   std::ifstream infile(fname);

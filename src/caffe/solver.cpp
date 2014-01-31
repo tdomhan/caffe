@@ -1,6 +1,7 @@
 // Copyright Yangqing Jia 2013
 
 #include <cstdio>
+#include <cfloat>
 
 #include <algorithm>
 #include <string>
@@ -27,6 +28,7 @@ Solver<Dtype>::Solver(const SolverParameter& param)
   ReadProtoFromTextFile(param_.train_net(), &train_net_param);
   LOG(INFO) << "Creating training net.";
   net_.reset(new Net<Dtype>(train_net_param));
+  best_test_performance_ = -FLT_MAX;
   if (param_.has_test_net()) {
     LOG(INFO) << "Creating testing net.";
     NetParameter test_net_param;
@@ -74,6 +76,9 @@ void Solver<Dtype>::Solve(const char* resume_file) {
       // We need to set phase to test before running.
       Caffe::set_phase(Caffe::TEST);
       Dtype test_score = Test();
+      if(test_score > best_test_performance_) {
+          best_test_performance_ = test_score;
+      }
       learning_curve_file << test_score << ",";
       learning_curve_file.flush();
       Caffe::set_phase(Caffe::TRAIN);
