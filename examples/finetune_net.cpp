@@ -6,6 +6,8 @@
 
 #include <cuda_runtime.h>
 
+#include <iostream>
+
 #include <cstring>
 #include <cstdlib>
 
@@ -22,8 +24,10 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  if(getenv("CAFFE_DEVICE_ID")) {
-    Caffe::SetDevice(atoi(getenv("CAFFE_DEVICE_ID")));
+  if(getenv("CAFFE_DEVICE_ID") != NULL) {
+    int device_id = atoi(getenv("CAFFE_DEVICE_ID"));
+    LOG(INFO) << "Setting device id to " << device_id;
+    Caffe::SetDevice(device_id);
   }
 
   SolverParameter solver_param;
@@ -36,7 +40,7 @@ int main(int argc, char** argv) {
   solver.Solve();
   LOG(INFO) << "Optimization Done.";
 
-  LOG(INFO) << "Accuracy: " << solver.GetBestTestPerformance();
+  std::cout << "Accuracy: " << solver.GetBestTestPerformance();
 
   return 0;
 }
