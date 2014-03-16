@@ -9,9 +9,13 @@
 
 #include <cstring>
 
+#include <iostream>
+
 #include "caffe/caffe.hpp"
 
-using namespace caffe;  // NOLINT(build/namespaces)
+using namespace caffe;
+
+typedef float Dtype;
 
 int main(int argc, char** argv) {
   ::google::InitGoogleLogging(argv[0]);
@@ -24,7 +28,7 @@ int main(int argc, char** argv) {
   ReadProtoFromTextFile(argv[1], &solver_param);
 
   LOG(INFO) << "Starting Optimization";
-  SGDSolver<float> solver(solver_param);
+  SGDSolver<Dtype> solver(solver_param);
   if (argc == 3) {
     LOG(INFO) << "Resuming from " << argv[2];
     solver.Solve(argv[2]);
@@ -32,6 +36,8 @@ int main(int argc, char** argv) {
     solver.Solve();
   }
   LOG(INFO) << "Optimization Done.";
+
+  std::cout << "Accuracy: " << solver.GetBestTestPerformance();
 
   return 0;
 }

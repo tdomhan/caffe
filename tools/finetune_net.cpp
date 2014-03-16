@@ -6,11 +6,16 @@
 
 #include <cuda_runtime.h>
 
-#include <string>
+#include <iostream>
+
+#include <cstring>
+#include <cstdlib>
 
 #include "caffe/caffe.hpp"
 
-using namespace caffe;  // NOLINT(build/namespaces)
+using namespace caffe;
+
+typedef float Dtype;
 
 int main(int argc, char** argv) {
   ::google::InitGoogleLogging(argv[0]);
@@ -19,15 +24,23 @@ int main(int argc, char** argv) {
     return 0;
   }
 
+  if(getenv("CAFFE_DEVICE_ID") != NULL) {
+    int device_id = atoi(getenv("CAFFE_DEVICE_ID"));
+    LOG(INFO) << "Setting device id to " << device_id;
+    Caffe::SetDevice(device_id);
+  }
+
   SolverParameter solver_param;
   ReadProtoFromTextFile(argv[1], &solver_param);
 
   LOG(INFO) << "Starting Optimization";
-  SGDSolver<float> solver(solver_param);
+  SGDSolver<Dtype> solver(solver_param);
   LOG(INFO) << "Loading from " << argv[2];
   solver.net()->CopyTrainedLayersFrom(string(argv[2]));
   solver.Solve();
   LOG(INFO) << "Optimization Done.";
+
+  std::cout << "Accuracy: " << solver.GetBestTestPerformance();
 
   return 0;
 }
