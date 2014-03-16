@@ -1,10 +1,13 @@
 // Copyright Yangqing Jia 2013
 
 #include <cstdio>
+#include <cfloat>
 
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -19,12 +22,13 @@ namespace caffe {
 
 template <typename Dtype>
 Solver<Dtype>::Solver(const SolverParameter& param)
-    : param_(param), net_(), test_net_() {
+    : param_(param), net_(), test_net_(), termination_criterion_() {
   // Scaffolding code
   NetParameter train_net_param;
   ReadProtoFromTextFile(param_.train_net(), &train_net_param);
   LOG(INFO) << "Creating training net.";
   net_.reset(new Net<Dtype>(train_net_param));
+  best_test_performance_ = -FLT_MAX;
   if (param_.has_test_net()) {
     LOG(INFO) << "Creating testing net.";
     NetParameter test_net_param;
@@ -32,6 +36,12 @@ Solver<Dtype>::Solver(const SolverParameter& param)
     test_net_.reset(new Net<Dtype>(test_net_param));
     CHECK_GT(param_.test_iter(), 0);
     CHECK_GT(param_.test_interval(), 0);
+  }
+  if (this->param_.termination_criterion() == SolverParameter::MAX_ITER) {
+    termination_criterion_.reset(new MaxIterTerminationCriterion<Dtype >(param_.max_iter()));
+  } else if (this->param_.termination_criterion() == SolverParameter::TEST_ACCURACY) {
+    CHECK(param_.has_test_net()) << "Test network needed for TestAccuracyTerminationCriterion.";
+    termination_criterion_.reset(new TestAccuracyTerminationCriterion<Dtype >(param_.test_accuracy_stop_countdown()));
   }
   LOG(INFO) << "Solver scaffolding done.";
 }
@@ -47,7 +57,11 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   LOG(INFO) << "Solving " << net_->name();
   PreSolve();
 
+  std::ofstream learning_curve_file;
+  learning_curve_file.open("learning_curve.txt");
+
   iter_ = 0;
+  Dtype test_accuracy;
   if (resume_file) {
     LOG(INFO) << "Restoring previous solver status from " << resume_file;
     Restore(resume_file);
@@ -56,7 +70,10 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   // For a network that is trained by the solver, no bottom or top vecs
   // should be given, and we will just provide dummy vecs.
   vector<Blob<Dtype>*> bottom_vec;
-  while (iter_++ < param_.max_iter()) {
+  do {
+    iter_++;
+    termination_criterion_->NotifyIteration(iter_);
+
     Dtype loss = net_->ForwardBackward(bottom_vec);
     ComputeUpdateValue();
     net_->Update();
@@ -67,24 +84,33 @@ void Solver<Dtype>::Solve(const char* resume_file) {
     if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
       // We need to set phase to test before running.
       Caffe::set_phase(Caffe::TEST);
-      Test();
+      test_accuracy = Test();
+      termination_criterion_->NotifyTestAccuracy(test_accuracy);
+      if(test_accuracy > best_test_performance_) {
+          best_test_performance_ = test_accuracy;
+      }
+      learning_curve_file << test_accuracy << ",";
+      learning_curve_file.flush();
       Caffe::set_phase(Caffe::TRAIN);
     }
     // Check if we need to do snapshot
     if (param_.snapshot() && iter_ % param_.snapshot() == 0) {
       Snapshot();
     }
+  } while (!termination_criterion_->IsCriterionMet());
+  if (param_.snapshot_on_exit()) {
+    iter_--;
+    Snapshot();
   }
-  // After the optimization is done, always do a snapshot.
-  iter_--;
-  Snapshot();
+
+  learning_curve_file.close();
   LOG(INFO) << "Optimization Done.";
 }
 
 
 template <typename Dtype>
-void Solver<Dtype>::Test() {
-  LOG(INFO) << "Iteration " << iter_ << ", Testing net";
+Dtype Solver<Dtype>::Test() {
+  LOG(INFO) << "Testing net";
   NetParameter net_param;
   net_->ToProto(&net_param);
   CHECK_NOTNULL(test_net_.get())->CopyTrainedLayersFrom(net_param);
@@ -114,6 +140,8 @@ void Solver<Dtype>::Test() {
     LOG(INFO) << "Test score #" << i << ": "
         << test_score[i] / param_.test_iter();
   }
+  //assumption: the first element of test_score is the accuracy
+  return test_score[0] / param_.test_iter();
 }
 
 
@@ -167,6 +195,7 @@ Dtype SGDSolver<Dtype>::GetLearningRate() {
   if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
+    CHECK_GT(this->param_.stepsize(), 0) << "step size necessary.";
     int current_step = this->iter_ / this->param_.stepsize();
     rate = this->param_.base_lr() *
         pow(this->param_.gamma(), current_step);
@@ -277,7 +306,31 @@ void SGDSolver<Dtype>::RestoreSolverState(const SolverState& state) {
   }
 }
 
+template <typename Dtype>
+void MaxIterTerminationCriterion<Dtype >::NotifyIteration(int iter) {
+  this->criterion_met_ = iter >= max_iter_;
+}
+  
+template <typename Dtype>
+void TestAccuracyTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
+  if (test_accuracy > best_accuracy_) {
+    //reset countdown
+    count_down_ = test_accuracy_stop_countdown_;
+    this->criterion_met_ = false;
+    best_accuracy_ = test_accuracy;
+  } else {
+    --count_down_;
+    if (count_down_ <= 0) {
+      this->criterion_met_ = true;
+    } else {
+      this->criterion_met_ = false;
+    }
+  }
+}
+
 INSTANTIATE_CLASS(Solver);
 INSTANTIATE_CLASS(SGDSolver);
+INSTANTIATE_CLASS(MaxIterTerminationCriterion);
+INSTANTIATE_CLASS(TestAccuracyTerminationCriterion);
 
 }  // namespace caffe
