@@ -121,6 +121,7 @@ message LayerParameter {
     CONCAT = 3;
     CONVOLUTION = 4;
     DATA = 5;
+    DATA_AUGMENTATION = 29;
     DROPOUT = 6;
     EUCLIDEAN_LOSS = 7;
     ELTWISE_PRODUCT = 25;

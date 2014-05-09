@@ -117,6 +117,7 @@ class ReLULayer : public NeuronLayer<Dtype> {
       const bool propagate_down, vector<Blob<Dtype>*>* bottom);
 };
 
+
 template <typename Dtype>
 class SigmoidLayer : public NeuronLayer<Dtype> {
  public:
@@ -303,6 +304,32 @@ class DataLayer : public Layer<Dtype> {
   Blob<Dtype> data_mean_;
   bool output_labels_;
   Caffe::Phase phase_;
+};
+
+template <typename Dtype>
+class DataAugmentationLayer : public Layer<Dtype> {
+ public:
+  explicit DataAugmentationLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual ~DataAugmentationLayer() {};
+  virtual void SetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+ protected:
+  virtual Dtype Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual Dtype Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top){
+    Forward_cpu(bottom, top);
+  };
+
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const bool propagate_down, vector<Blob<Dtype>*>* bottom)  { return; }
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const bool propagate_down, vector<Blob<Dtype>*>* bottom)  { return; }
+
+  int cropped_height;
+  int cropped_width;
 };
 
 template <typename Dtype>
