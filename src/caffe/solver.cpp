@@ -53,7 +53,8 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
 template <typename Dtype>
 void Solver<Dtype>::Solve(const char* resume_file) {
   Caffe::set_mode(Caffe::Brew(param_.solver_mode()));
-  if (param_.solver_mode() && param_.has_device_id()) {
+  if (param_.solver_mode() == SolverParameter_SolverMode_GPU &&
+      param_.has_device_id()) {
     Caffe::SetDevice(param_.device_id());
   }
   Caffe::set_phase(Caffe::TRAIN);
@@ -102,11 +103,7 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
 template <typename Dtype>
 void Solver<Dtype>::Test() {
-  if (iter_) {
-    LOG(INFO) << "Iteration " << iter_ << ", Testing net";
-  } else {
-    LOG(INFO) << "Testing net from initial parameters.";
-  }
+  LOG(INFO) << "Iteration " << iter_ << ", Testing net";
   // We need to set phase to test before running.
   Caffe::set_phase(Caffe::TEST);
   CHECK_NOTNULL(test_net_.get())->ShareTrainedLayersWith(net_.get());

@@ -81,7 +81,11 @@ message SolverParameter {
   // debugging but the final protocol buffer size will be much larger.
   optional bool snapshot_diff = 16 [default = false];
   // the mode solver will use: 0 for CPU and 1 for GPU. Use GPU in default.
-  optional int32 solver_mode = 17 [default = 1];
+  enum SolverMode {
+    CPU = 0;
+    GPU = 1;
+  }
+  optional SolverMode solver_mode = 17 [default = GPU];
   // the device_id will that be used in GPU mode. Use device_id = 0 in default.
   optional int32 device_id = 18 [default = 0];
   // If non-negative, the seed with which the Solver will initialize the Caffe
@@ -99,7 +103,7 @@ message SolverState {
 
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available ID: 22
+// LayerParameter next available ID: 23 (last added: memory_data_param)
 message LayerParameter {
   repeated string bottom = 2; // the name of the bottom blobs
   repeated string top = 3; // the name of the top blobs
@@ -110,7 +114,7 @@ message LayerParameter {
   // line above the enum. Update the next available ID when you add a new
   // LayerType.
   //
-  // LayerType next available ID: 29
+  // LayerType next available ID: 30 (last added: MEMORY_DATA)
   enum LayerType {
     // "NONE" layer type is 0th enum element so that we don't cause confusion
     // by defaulting to an existent LayerType (instead, should usually error if
@@ -134,6 +138,7 @@ message LayerParameter {
     INFOGAIN_LOSS = 13;
     INNER_PRODUCT = 14;
     LRN = 15;
+    MEMORY_DATA = 29;
     MULTINOMIAL_LOGISTIC_LOSS = 16;
     POOLING = 17;
     POWER = 26;
@@ -167,6 +172,7 @@ message LayerParameter {
   optional InfogainLossParameter infogain_loss_param = 16;
   optional InnerProductParameter inner_product_param = 17;
   optional LRNParameter lrn_param = 18;
+  optional MemoryDataParameter memory_data_param = 22;
   optional PoolingParameter pooling_param = 19;
   optional PowerParameter power_param = 21;
   optional WindowDataParameter window_data_param = 20;
@@ -288,6 +294,14 @@ message LRNParameter {
     WITHIN_CHANNEL = 1;
   }
   optional NormRegion norm_region = 4 [default = ACROSS_CHANNELS];
+}
+
+// Message that stores parameters used by MemoryDataLayer
+message MemoryDataParameter {
+  optional uint32 batch_size = 1;
+  optional uint32 channels = 2;
+  optional uint32 height = 3;
+  optional uint32 width = 4;
 }
 
 // Message that stores parameters used by PoolingLayer
