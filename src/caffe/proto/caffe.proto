@@ -100,6 +100,13 @@ message SolverParameter {
   // random number generator -- useful for reproducible results. Otherwise,
   // (and by default) initialize using a seed derived from the system clock.
   optional int64 random_seed = 20 [default = -1];
+  enum TerminationCriterion {
+    MAX_ITER = 0; // terminates after max_iter
+    TEST_ACCURACY = 1; // terminates when the test set accuracy doesn't improve for test_accuracy_stop_countdown iterations
+  }
+  optional TerminationCriterion termination_criterion = 23 [default = MAX_ITER]; // The condition that has to be met for the training to stop
+  optional int32 test_accuracy_stop_countdown = 24 [default = 10]; // the number of iterations of non-increasing test accuracy before stopping
+  optional int32 snapshot_on_exit = 25 [default = 0];
 }
 
 // A message that stores the solver snapshots

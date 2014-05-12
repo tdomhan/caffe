@@ -9,6 +9,9 @@
 namespace caffe {
 
 template <typename Dtype>
+class TerminationCriterion;
+  
+template <typename Dtype>
 class Solver {
  public:
   explicit Solver(const SolverParameter& param);
@@ -46,6 +49,7 @@ class Solver {
   int iter_;
   shared_ptr<Net<Dtype> > net_;
   vector<shared_ptr<Net<Dtype> > > test_nets_;
+  shared_ptr<TerminationCriterion<Dtype > > termination_criterion_;
 
   DISABLE_COPY_AND_ASSIGN(Solver);
 };
@@ -71,6 +75,50 @@ class SGDSolver : public Solver<Dtype> {
   DISABLE_COPY_AND_ASSIGN(SGDSolver);
 };
 
+template <typename Dtype>
+class TerminationCriterion {
+public:
+  TerminationCriterion() : criterion_met_(false) {};
+  
+  virtual bool IsCriterionMet() {return criterion_met_;};
+
+  virtual void NotifyTestAccuracy(Dtype test_accuracy) = 0;
+
+  virtual void NotifyIteration(int iteration) = 0;
+protected:
+  bool criterion_met_;
+};
+  
+template <typename Dtype>
+class MaxIterTerminationCriterion : public TerminationCriterion<Dtype> {
+public:
+  MaxIterTerminationCriterion(int max_iter) : max_iter_(max_iter) {};
+
+  virtual void NotifyTestAccuracy(Dtype test_accuracy) {};
+  
+  virtual void NotifyIteration(int iteration);
+private:
+  int max_iter_;
+};
+  
+template <typename Dtype>
+class TestAccuracyTerminationCriterion : public TerminationCriterion<Dtype> {
+public:
+  TestAccuracyTerminationCriterion(int test_accuracy_stop_countdown) :
+    test_accuracy_stop_countdown_(test_accuracy_stop_countdown),
+    count_down_(test_accuracy_stop_countdown),
+    best_accuracy_(0.) {};
+  
+  virtual void NotifyTestAccuracy(Dtype test_accuracy);
+  
+  virtual void NotifyIteration(int iteration) {};
+  
+private:
+  const int test_accuracy_stop_countdown_;
+  Dtype best_accuracy_;
+  int count_down_;
+};
+  
 
 }  // namespace caffe
 
