@@ -1,6 +1,7 @@
 // Copyright 2014 BVLC and contributors.
 
 #include <cstdio>
+#include <ctime>
 
 #include <algorithm>
 #include <string>
@@ -68,6 +69,12 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
                 << ") from file: " << param.test_net(i);
       test_nets_[test_net_id].reset(new Net<Dtype>(param_.test_net(i)));
   }
+  if (this->param_.termination_criterion() == SolverParameter::MAX_ITER) {
+    termination_criterion_.reset(new MaxIterTerminationCriterion<Dtype >(param_.max_iter()));
+  } else if (this->param_.termination_criterion() == SolverParameter::TEST_ACCURACY) {
+    CHECK(num_test_nets) << "Test network needed for TestAccuracyTerminationCriterion.";
+    termination_criterion_.reset(new TestAccuracyTerminationCriterion<Dtype >(param_.test_accuracy_stop_countdown()));
+  }
   LOG(INFO) << "Solver scaffolding done.";
 }
 
@@ -100,7 +107,10 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   // For a network that is trained by the solver, no bottom or top vecs
   // should be given, and we will just provide dummy vecs.
   vector<Blob<Dtype>*> bottom_vec;
-  while (iter_++ < param_.max_iter()) {
+  do {
+    iter_++;
+    termination_criterion_->NotifyIteration(iter_);
+
     Dtype loss = net_->ForwardBackward(bottom_vec);
     ComputeUpdateValue();
     net_->Update();
@@ -115,16 +125,20 @@ void Solver<Dtype>::Solve(const char* resume_file) {
     if (param_.snapshot() && iter_ % param_.snapshot() == 0) {
       Snapshot();
     }
+  } while (!termination_criterion_->IsCriterionMet());
+  if (param_.snapshot_on_exit()) {
+    iter_--;
+    Snapshot();
   }
-  // After the optimization is done, always do a snapshot.
-  iter_--;
-  Snapshot();
   LOG(INFO) << "Optimization Done.";
 }
 
 
 template <typename Dtype>
 void Solver<Dtype>::TestAll() {
+  time_t timer;
+  timer = time(NULL);
+  LOG(INFO) << "Test timestamp " << timer;
   for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
     Test(test_net_id);
   }
@@ -167,10 +181,10 @@ void Solver<Dtype>::Test(const int test_net_id) {
   }
   if (param_.test_compute_loss()) {
     loss /= param_.test_iter().Get(test_net_id);
-    LOG(INFO) << "Test loss: " << loss;
+    LOG(INFO) << test_nets_[test_net_id]->name() << " test loss: " << loss;
   }
   for (int i = 0; i < test_score.size(); ++i) {
-    LOG(INFO) << "Test score #" << i << ": "
+    LOG(INFO) << test_nets_[test_net_id]->name() << " test score #" << i << ": "
         << test_score[i] / param_.test_iter().Get(test_net_id);
   }
   Caffe::set_phase(Caffe::TRAIN);
@@ -227,6 +241,7 @@ Dtype SGDSolver<Dtype>::GetLearningRate() {
   if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
+    CHECK_GT(this->param_.stepsize(), 0) << "step size necessary.";
     int current_step = this->iter_ / this->param_.stepsize();
     rate = this->param_.base_lr() *
         pow(this->param_.gamma(), current_step);
@@ -337,7 +352,31 @@ void SGDSolver<Dtype>::RestoreSolverState(const SolverState& state) {
   }
 }
 
+template <typename Dtype>
+void MaxIterTerminationCriterion<Dtype >::NotifyIteration(int iter) {
+  this->criterion_met_ = iter >= max_iter_;
+}
+  
+template <typename Dtype>
+void TestAccuracyTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
+  if (test_accuracy > best_accuracy_) {
+    //reset countdown
+    count_down_ = test_accuracy_stop_countdown_;
+    this->criterion_met_ = false;
+    best_accuracy_ = test_accuracy;
+  } else {
+    --count_down_;
+    if (count_down_ <= 0) {
+      this->criterion_met_ = true;
+    } else {
+      this->criterion_met_ = false;
+    }
+  }
+}
+
 INSTANTIATE_CLASS(Solver);
 INSTANTIATE_CLASS(SGDSolver);
+INSTANTIATE_CLASS(MaxIterTerminationCriterion);
+INSTANTIATE_CLASS(TestAccuracyTerminationCriterion);
 
 }  // namespace caffe
