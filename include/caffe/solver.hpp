@@ -35,6 +35,8 @@ class Solver {
   // function that produces a SolverState protocol buffer that needs to be
   // written to disk together with the learned net.
   void Snapshot();
+  // if any of the criterions is met this is true
+  bool TerminationCriterionsMet();
   // The test routine
   void TestAll();
   void Test(const int test_net_id = 0);
@@ -49,7 +51,7 @@ class Solver {
   int iter_;
   shared_ptr<Net<Dtype> > net_;
   vector<shared_ptr<Net<Dtype> > > test_nets_;
-  shared_ptr<TerminationCriterion<Dtype > > termination_criterion_;
+  vector<shared_ptr<TerminationCriterion<Dtype > > > termination_criterions_;
 
   DISABLE_COPY_AND_ASSIGN(Solver);
 };

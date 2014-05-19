@@ -69,11 +69,22 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
                 << ") from file: " << param.test_net(i);
       test_nets_[test_net_id].reset(new Net<Dtype>(param_.test_net(i)));
   }
-  if (this->param_.termination_criterion() == SolverParameter::MAX_ITER) {
-    termination_criterion_.reset(new MaxIterTerminationCriterion<Dtype >(param_.max_iter()));
-  } else if (this->param_.termination_criterion() == SolverParameter::TEST_ACCURACY) {
-    CHECK(num_test_nets) << "Test network needed for TestAccuracyTerminationCriterion.";
-    termination_criterion_.reset(new TestAccuracyTerminationCriterion<Dtype >(param_.test_accuracy_stop_countdown()));
+  CHECK_GT(this->param_.termination_criterion().size(), 0) << "at least one termination criterion needed.";
+  termination_criterions_.resize(this->param_.termination_criterion().size());
+  for(int i=0; i < this->param_.termination_criterion().size(); i++) {
+    if (this->param_.termination_criterion().Get(i) == SolverParameter::MAX_ITER) {
+      termination_criterions_[i].reset(new MaxIterTerminationCriterion<Dtype >(param_.max_iter()));
+    } else if (this->param_.termination_criterion().Get(i) == SolverParameter::TEST_ACCURACY) {
+      CHECK(num_test_nets) << "Test network needed for TestAccuracyTerminationCriterion.";
+      bool valid_net = false;
+      for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
+        if (test_nets_[test_net_id]->name() == "valid") {
+          valid_net = true;
+        }
+      }
+      CHECK(valid_net) << "Network with the name 'valid' needed for TestAccuracyTerminationCriterion.";
+      termination_criterions_[i].reset(new TestAccuracyTerminationCriterion<Dtype >(param_.test_accuracy_stop_countdown()));
+    }
   }
   LOG(INFO) << "Solver scaffolding done.";
 }
@@ -109,7 +120,9 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   vector<Blob<Dtype>*> bottom_vec;
   do {
     iter_++;
-    termination_criterion_->NotifyIteration(iter_);
+    for (int i=0; i < termination_criterions_.size(); i++) {
+      termination_criterions_[i]->NotifyIteration(iter_);
+    }
 
     Dtype loss = net_->ForwardBackward(bottom_vec);
     ComputeUpdateValue();
@@ -125,7 +138,7 @@ void Solver<Dtype>::Solve(const char* resume_file) {
     if (param_.snapshot() && iter_ % param_.snapshot() == 0) {
       Snapshot();
     }
-  } while (!termination_criterion_->IsCriterionMet());
+  } while (!TerminationCriterionsMet());
   if (param_.snapshot_on_exit()) {
     iter_--;
     Snapshot();
@@ -133,6 +146,15 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   LOG(INFO) << "Optimization Done.";
 }
 
+template <typename Dtype>
+bool Solver<Dtype>::TerminationCriterionsMet() {
+  for (int i=0; i < termination_criterions_.size(); i++) {
+    if (termination_criterions_[i]->IsCriterionMet()) {
+      return true;
+    }
+  }
+  return false;
+}
 
 template <typename Dtype>
 void Solver<Dtype>::TestAll() {
@@ -186,6 +208,12 @@ void Solver<Dtype>::Test(const int test_net_id) {
   for (int i = 0; i < test_score.size(); ++i) {
     LOG(INFO) << test_nets_[test_net_id]->name() << " test score #" << i << ": "
         << test_score[i] / param_.test_iter().Get(test_net_id);
+  }
+  if (test_nets_[test_net_id]->name() == "valid") {
+    double valid_accuracy = test_score[0] / param_.test_iter().Get(test_net_id);
+    for (int i=0; i < termination_criterions_.size(); i++) {
+      termination_criterions_[i]->NotifyTestAccuracy(valid_accuracy);
+    }
   }
   Caffe::set_phase(Caffe::TRAIN);
 }
@@ -251,6 +279,10 @@ Dtype SGDSolver<Dtype>::GetLearningRate() {
     rate = this->param_.base_lr() *
         pow(Dtype(1) + this->param_.gamma() * this->iter_,
             - this->param_.power());
+  } else if (lr_policy == "inv_bergstra_bengio") {
+    CHECK_GT(this->param_.stepsize(), 0) << "step size necessary.";
+    rate = (this->iter_ > this->param_.stepsize()) ? this->param_.base_lr() * Dtype(this->param_.stepsize()) / this->iter_
+      : this->param_.base_lr();
   } else {
     LOG(FATAL) << "Unknown learning rate policy: " << lr_policy;
   }
