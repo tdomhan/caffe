@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 
 namespace caffe {
 
@@ -119,6 +120,25 @@ private:
   const int test_accuracy_stop_countdown_;
   Dtype best_accuracy_;
   int count_down_;
+};
+
+template <typename Dtype>
+class ExternalTerminationCriterion : public TerminationCriterion<Dtype> {
+public:
+  ExternalTerminationCriterion(const std::string& cmd, int run_every_x_iterations);
+  
+  virtual void NotifyTestAccuracy(Dtype test_accuracy);
+  
+  virtual void NotifyIteration(int iteration);
+  
+private:
+
+  void run();
+
+  //command to call to check the termination criterion.
+  std::string cmd_;
+  std::ofstream learning_curve_file_;
+  int run_every_x_iterations_;
 };
   
 

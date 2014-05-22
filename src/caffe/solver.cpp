@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <ctime>
+#include <cstdlib> 
 
 #include <algorithm>
 #include <string>
@@ -84,6 +85,13 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
       }
       CHECK(valid_net) << "Network with the name 'valid' needed for TestAccuracyTerminationCriterion.";
       termination_criterions_[i].reset(new TestAccuracyTerminationCriterion<Dtype >(param_.test_accuracy_stop_countdown()));
+    } else if (this->param_.termination_criterion().Get(i) == SolverParameter::EXTERNAL) {
+      CHECK(param_.has_external_term_criterion_cmd()) << "external_term_criterion_cmd needed";
+      CHECK(param_.has_external_term_criterion_num_iter()) << "external_term_criterion_num_iter needed";
+      termination_criterions_[i].reset(new ExternalTerminationCriterion<Dtype >(
+        param_.external_term_criterion_cmd(),
+        param_.external_term_criterion_num_iter()
+        ));
     }
   }
   LOG(INFO) << "Solver scaffolding done.";
@@ -406,9 +414,44 @@ void TestAccuracyTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_acc
   }
 }
 
+
+template <typename Dtype>
+ExternalTerminationCriterion<Dtype >::ExternalTerminationCriterion(const std::string& cmd,
+    int run_every_x_iterations)
+ : cmd_(cmd),
+   run_every_x_iterations_(run_every_x_iterations),
+   learning_curve_file_("learning_curve.txt") {
+}
+
+template <typename Dtype>
+void ExternalTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
+  learning_curve_file_ << test_accuracy << std::endl;
+  learning_curve_file_.flush();
+}
+
+template <typename Dtype>
+void ExternalTerminationCriterion<Dtype >::NotifyIteration(int iter) {
+  if (iter % run_every_x_iterations_ == 0) {
+    run();
+  }
+}
+
+template <typename Dtype>
+void ExternalTerminationCriterion<Dtype >::run() {
+  int ret = system(cmd_.c_str());
+  if (ret) {
+    this->criterion_met_ = true;
+  } else {
+    this->criterion_met_ = false;
+  }
+}
+
+
 INSTANTIATE_CLASS(Solver);
 INSTANTIATE_CLASS(SGDSolver);
 INSTANTIATE_CLASS(MaxIterTerminationCriterion);
 INSTANTIATE_CLASS(TestAccuracyTerminationCriterion);
+INSTANTIATE_CLASS(ExternalTerminationCriterion);
+
 
 }  // namespace caffe

@@ -103,10 +103,13 @@ message SolverParameter {
   enum TerminationCriterion {
     MAX_ITER = 0; // terminates after max_iter
     TEST_ACCURACY = 1; // terminates when the test set accuracy doesn't improve for test_accuracy_stop_countdown iterations
+    EXTERNAL = 2;
   }
   repeated TerminationCriterion termination_criterion = 23; // The condition that has to be met for the training to stop
   optional int32 test_accuracy_stop_countdown = 24 [default = 10]; // the number of iterations of non-increasing test accuracy before stopping
   optional int32 snapshot_on_exit = 25 [default = 0];
+  optional string external_term_criterion_cmd = 26;
+  optional int32 external_term_criterion_num_iter = 27;
 }
 
 // A message that stores the solver snapshots
