@@ -108,6 +108,9 @@ void* DataLayerPrefetch(void* layer_pointer) {
 
     if (layer->output_labels_) {
       top_label[item_id] = datum.label();
+      //if (layer->phase_ == Caffe::TRAIN) {
+      //  LOG(INFO) << datum.label(); 
+      //}
     }
     // go to the next iter
     layer->iter_->Next();
