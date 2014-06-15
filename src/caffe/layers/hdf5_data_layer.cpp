@@ -79,6 +79,7 @@ void HDF5DataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
   current_file_ = 0;
   LOG(INFO) << "Number of files: " << num_files_;
 
+  //TODO: ability to set data_in_memory_ from the outside!
   if(data_in_memory_) {
     data_blobs_.resize(num_files_);
     label_blobs_.resize(num_files_);
@@ -122,7 +123,7 @@ Dtype HDF5DataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   const int label_data_count = (*top)[1]->count() / (*top)[1]->num();
 
   for (int i = 0; i < batch_size; ++i, ++current_row_) {
-    if (current_row_ == data_blobs_[current_file_]->num()) {
+    if (current_row_ == current_data_blob_->num()) {
       if (num_files_ > 1) {
         current_file_ += 1;
         if (current_file_ == num_files_) {
@@ -131,6 +132,7 @@ Dtype HDF5DataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         }
         if(data_in_memory_) {
           current_data_blob_ = data_blobs_[current_file_];
+          current_label_blob_ = current_label_blob_[current_file_];
         } else {
           LoadHDF5FileData(hdf_filenames_[current_file_].c_str(), current_data_blob_, current_label_blob_);
         }
