@@ -104,6 +104,7 @@ message SolverParameter {
     MAX_ITER = 0; // terminates after max_iter
     TEST_ACCURACY = 1; // terminates when the test set accuracy doesn't improve for test_accuracy_stop_countdown iterations
     EXTERNAL = 2;
+    EXTERNAL_IN_BACKGROUND = 3;
   }
   repeated TerminationCriterion termination_criterion = 23; // The condition that has to be met for the training to stop
   optional int32 test_accuracy_stop_countdown = 24 [default = 10]; // the number of iterations of non-increasing test accuracy before stopping
@@ -254,6 +255,8 @@ message HDF5DataParameter {
   optional string source = 1;
   // Specify the batch size.
   optional uint32 batch_size = 2;
+  // Load all data/files into memory at startup:
+  optional bool data_in_memory = 3 [default = true];
 }
 
 // Message that stores parameters used by HDF5OutputLayer

@@ -140,6 +140,39 @@ private:
   std::ofstream learning_curve_file_;
   int run_every_x_iterations_;
 };
+
+
+template <typename Dtype>
+class ExternalRunInBackgroundTerminationCriterion : public TerminationCriterion<Dtype> {
+  /*
+    Termination criterion is run in background parallelly to the caffe process.
+    The status will be checked through files.
+
+    The usage protocol is the following:
+
+      1. Before the process is started a file called termination_criterion_running is created
+      2. The termination criterion is responsible for deleting termination_criterion_running
+         If this file is not deleted the termination criterion won't ever be run in the future!
+      3. When the termination criterion is completed it will delete the file termination_criterion_running
+         Furthermore the file y_predict.txt will be created in case the termination criterion is met.
+  */
+public:
+  ExternalRunInBackgroundTerminationCriterion(const std::string& cmd, int run_every_x_iterations);
+  
+  virtual void NotifyTestAccuracy(Dtype test_accuracy);
+  
+  virtual void NotifyIteration(int iteration);
+  
+private:
+
+  void run();
+
+  //command to call to check the termination criterion.
+  std::string cmd_;
+  std::ofstream learning_curve_file_;
+  int run_every_x_iterations_;
+  int iter_of_next_run_;
+};
   
 
 }  // namespace caffe

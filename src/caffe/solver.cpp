@@ -36,7 +36,7 @@ Solver<Dtype>::Solver(const string& param_file)
 template <typename Dtype>
 void Solver<Dtype>::Init(const SolverParameter& param) {
   LOG(INFO) << "Initializing solver from parameters: " << std::endl
-            << param.DebugString();
+            << param.DebugString(); 
   param_ = param;
   if (param_.random_seed() >= 0) {
     Caffe::set_random_seed(param_.random_seed());
@@ -89,6 +89,13 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
       CHECK(param_.has_external_term_criterion_cmd()) << "external_term_criterion_cmd needed";
       CHECK(param_.has_external_term_criterion_num_iter()) << "external_term_criterion_num_iter needed";
       termination_criterions_[i].reset(new ExternalTerminationCriterion<Dtype >(
+        param_.external_term_criterion_cmd(),
+        param_.external_term_criterion_num_iter()
+        ));
+    } else if (this->param_.termination_criterion().Get(i) == SolverParameter::EXTERNAL_IN_BACKGROUND) {
+      CHECK(param_.has_external_term_criterion_cmd()) << "external_term_criterion_cmd needed";
+      CHECK(param_.has_external_term_criterion_num_iter()) << "external_term_criterion_num_iter needed";
+      termination_criterions_[i].reset(new ExternalRunInBackgroundTerminationCriterion<Dtype >(
         param_.external_term_criterion_cmd(),
         param_.external_term_criterion_num_iter()
         ));
@@ -440,10 +447,68 @@ template <typename Dtype>
 void ExternalTerminationCriterion<Dtype >::run() {
   int ret = system(cmd_.c_str());
   if (ret) {
+    LOG(INFO) << "external termination criterion met.";
     this->criterion_met_ = true;
   } else {
     this->criterion_met_ = false;
   }
+}
+
+
+template <typename Dtype>
+ExternalRunInBackgroundTerminationCriterion<Dtype >::ExternalRunInBackgroundTerminationCriterion(const std::string& cmd,
+    int run_every_x_iterations)
+ : cmd_(cmd),
+   run_every_x_iterations_(run_every_x_iterations),
+   learning_curve_file_("learning_curve.txt"),
+   iter_of_next_run_(run_every_x_iterations) {
+    //add & character so that it's executed in the background
+    cmd_.append(" &");
+
+    //make sure y_predict.txt doesn't exist, because we will base the termination
+    //decision on the presence of that file later on.
+    if (std::ifstream("y_predict.txt")) {
+      remove("y_predict.txt");
+    }
+    if (std::ifstream("termination_criterion_running")) {
+      remove("termination_criterion_running");
+    }
+}
+
+template <typename Dtype>
+void ExternalRunInBackgroundTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
+  learning_curve_file_ << test_accuracy << std::endl;
+  learning_curve_file_.flush();
+}
+
+template <typename Dtype>
+void ExternalRunInBackgroundTerminationCriterion<Dtype >::NotifyIteration(int iter) {
+  //check if terminated, by checking the if the flag file exists.
+  if (std::ifstream("termination_criterion_running")) {
+      //wait for it to complete...
+  } else {
+    //by convention if y_predict.txt was created the termination criterion was reached.
+    if (std::ifstream("y_predict.txt")) {
+      this->criterion_met_ = true;
+    } else {
+      this->criterion_met_ = false;
+      if (iter >= iter_of_next_run_) {
+        run();
+        iter_of_next_run_ += run_every_x_iterations_;
+      }
+    }
+  }
+}
+
+template <typename Dtype>
+void ExternalRunInBackgroundTerminationCriterion<Dtype >::run() {
+  //create file that indicates the termination criterion is running right now
+  std::ofstream outfile ("termination_criterion_running");
+  outfile << "running" << std::endl;
+  outfile.close();
+
+  //kick off the termination criterion.
+  int result = system(cmd_.c_str());
 }
 
 
@@ -452,6 +517,6 @@ INSTANTIATE_CLASS(SGDSolver);
 INSTANTIATE_CLASS(MaxIterTerminationCriterion);
 INSTANTIATE_CLASS(TestAccuracyTerminationCriterion);
 INSTANTIATE_CLASS(ExternalTerminationCriterion);
-
+INSTANTIATE_CLASS(ExternalRunInBackgroundTerminationCriterion);
 
 }  // namespace caffe
