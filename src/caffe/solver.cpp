@@ -476,6 +476,18 @@ ExternalRunInBackgroundTerminationCriterion<Dtype >::ExternalRunInBackgroundTerm
 }
 
 template <typename Dtype>
+ExternalRunInBackgroundTerminationCriterion<Dtype >::~ExternalRunInBackgroundTerminationCriterion() {
+  if (std::ifstream("termination_criterion_running_pid")) {
+    LOG(INFO) << "aborting termination_criterion";
+    system("kill `cat termination_criterion_running_pid`");
+    remove("termination_criterion_running_pid");
+  }
+  if (std::ifstream("termination_criterion_running")) {
+    remove("termination_criterion_running");
+  }
+}
+
+template <typename Dtype>
 void ExternalRunInBackgroundTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
   learning_curve_file_ << test_accuracy << std::endl;
   learning_curve_file_.flush();

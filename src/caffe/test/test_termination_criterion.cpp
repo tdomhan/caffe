@@ -6,6 +6,8 @@
 
 #include <cstring>
 #include <algorithm>
+#include <iostream>
+#include <stdio.h>
 
 #include "gtest/gtest.h"
 #include "caffe/common.hpp"
@@ -16,7 +18,6 @@
 
 #include "caffe/net.hpp"
 #include "caffe/solver.hpp"
-
 
 namespace caffe {
 
@@ -118,6 +119,8 @@ namespace caffe {
     double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
     EXPECT_TRUE(elapsed_secs < epsilon_time);
     LOG(INFO) << elapsed_secs;
+
+    system("kill `pidof sleep`");
   }
 
   TEST(TestTerminationCriterion, ExternalRunInBackgroundTerminationCriterionIsRun) {
@@ -131,6 +134,30 @@ namespace caffe {
     sleep(1);
     EXPECT_TRUE(std::ifstream("test"));
     ret = system("rm test");
+  }
+
+
+  TEST(TestTerminationCriterion, ExternalRunInBackgroundTerminationCriterionIsKilled) {
+    int run_every = 10;
+    int ret;
+
+    //make sure
+    ret = system("pidof sleep");
+    EXPECT_NE(ret, 0) << " " <<"WARNING: make sure there's no sleep process running at the moment!";
+
+    {
+        ExternalRunInBackgroundTerminationCriterion<Dtype> criterion("sleep 10000", run_every);
+        criterion.NotifyIteration(run_every+1);
+        sleep(1);
+        //this is a little hacky, because it assumes only a single sleep instance is running at the moment
+        system("pidof sleep > termination_criterion_running_pid");
+        ret = system("pidof sleep");
+        EXPECT_EQ(ret, 0);
+    }
+    ret = system("pidof sleep");
+
+    //getting the pid of sleep should be false now, because it should have been killed
+    EXPECT_NE(ret, 0);
   }
 
 }  // namespace caffe
