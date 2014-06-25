@@ -36,7 +36,7 @@ Dtype HDF5DataLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
         }
         if(data_in_memory_) {
           current_data_blob_ = data_blobs_[current_file_];
-          current_label_blob_ = current_label_blob_[current_file_];
+          current_label_blob_ = label_blobs_[current_file_];
         } else {
           LoadHDF5FileData(hdf_filenames_[current_file_].c_str(), current_data_blob_, current_label_blob_);
         }

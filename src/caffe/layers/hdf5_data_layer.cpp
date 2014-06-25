@@ -63,6 +63,8 @@ void HDF5DataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK_EQ(bottom.size(), 0) << "HDF5DataLayer takes no input blobs.";
   CHECK_EQ(top->size(), 2) << "HDF5DataLayer takes two blobs as output.";
 
+  data_in_memory_ = this->layer_param_.hdf5_data_param().data_in_memory();
+
   // Read the source to parse the filenames.
   const string& source = this->layer_param_.hdf5_data_param().source();
   LOG(INFO) << "Loading filename from " << source;
@@ -79,7 +81,6 @@ void HDF5DataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
   current_file_ = 0;
   LOG(INFO) << "Number of files: " << num_files_;
 
-  //TODO: ability to set data_in_memory_ from the outside!
   if(data_in_memory_) {
     data_blobs_.resize(num_files_);
     label_blobs_.resize(num_files_);
@@ -132,7 +133,7 @@ Dtype HDF5DataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         }
         if(data_in_memory_) {
           current_data_blob_ = data_blobs_[current_file_];
-          current_label_blob_ = current_label_blob_[current_file_];
+          current_label_blob_ = label_blobs_[current_file_];
         } else {
           LoadHDF5FileData(hdf_filenames_[current_file_].c_str(), current_data_blob_, current_label_blob_);
         }
