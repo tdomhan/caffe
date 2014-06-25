@@ -159,6 +159,8 @@ class ExternalRunInBackgroundTerminationCriterion : public TerminationCriterion<
 public:
   ExternalRunInBackgroundTerminationCriterion(const std::string& cmd, int run_every_x_iterations);
   
+  ~ExternalRunInBackgroundTerminationCriterion();
+
   virtual void NotifyTestAccuracy(Dtype test_accuracy);
   
   virtual void NotifyIteration(int iteration);
