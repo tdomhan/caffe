@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include <ctime>
+#include <cmath>
 
 #include <cstring>
 #include <algorithm>
@@ -36,36 +37,94 @@ namespace caffe {
     criterion.NotifyIteration(3);
     EXPECT_TRUE(criterion.IsCriterionMet());
   }
+
+  TEST(TestTerminationCriterion, TestDivergenceDetectionNan) {
+    DivergenceDetectionTerminationCriterion<Dtype> criterion;
+    EXPECT_FALSE(criterion.IsCriterionMet());
+    
+    criterion.NotifyValidationLoss(100);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+    criterion.NotifyValidationLoss(0.1);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+    criterion.NotifyValidationLoss(0.7);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+    criterion.NotifyValidationLoss(-nan(""));
+    EXPECT_TRUE(criterion.IsCriterionMet());
+
+    criterion.NotifyValidationLoss(nan(""));
+    EXPECT_TRUE(criterion.IsCriterionMet());
+  }
+
+  TEST(TestTerminationCriterion, TestDivergenceDetectionLoss) {
+    DivergenceDetectionTerminationCriterion<Dtype> criterion;
+    EXPECT_FALSE(criterion.IsCriterionMet());
+    
+    criterion.NotifyValidationLoss(2.3);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+
+    criterion.NotifyValidationLoss(1.3);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+    criterion.NotifyValidationLoss(0.001);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+    //let the loss explode:
+    criterion.NotifyValidationLoss(80);
+    EXPECT_TRUE(criterion.IsCriterionMet());
+  }
+
+  TEST(TestTerminationCriterion, TestDivergenceDetectionLoss2) {
+    DivergenceDetectionTerminationCriterion<Dtype> criterion;
+    EXPECT_FALSE(criterion.IsCriterionMet());
+    
+    criterion.NotifyValidationLoss(80);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+
+    criterion.NotifyValidationLoss(2);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+    criterion.NotifyValidationLoss(0.001);
+    EXPECT_FALSE(criterion.IsCriterionMet());
+
+    //let the loss explode:
+    criterion.NotifyValidationLoss(8000);
+    EXPECT_TRUE(criterion.IsCriterionMet());
+  }
   
   TEST(TestTerminationCriterion, TestAccuracy) {
     TestAccuracyTerminationCriterion<Dtype> criterion(3);
     EXPECT_FALSE(criterion.IsCriterionMet());
     
-    criterion.NotifyTestAccuracy(0.5);
+    criterion.NotifyValidationAccuracy(0.5);
     EXPECT_FALSE(criterion.IsCriterionMet());
 
     //first countdown
-    criterion.NotifyTestAccuracy(0.5);
+    criterion.NotifyValidationAccuracy(0.5);
     EXPECT_FALSE(criterion.IsCriterionMet());
     
     //second countdown
-    criterion.NotifyTestAccuracy(0.5);
+    criterion.NotifyValidationAccuracy(0.5);
     EXPECT_FALSE(criterion.IsCriterionMet());
     
     //reset
-    criterion.NotifyTestAccuracy(0.6);
+    criterion.NotifyValidationAccuracy(0.6);
     EXPECT_FALSE(criterion.IsCriterionMet());
     
     //first countdown
-    criterion.NotifyTestAccuracy(0.5);
+    criterion.NotifyValidationAccuracy(0.5);
     EXPECT_FALSE(criterion.IsCriterionMet());
     
     //second countdown
-    criterion.NotifyTestAccuracy(0.5);
+    criterion.NotifyValidationAccuracy(0.5);
     EXPECT_FALSE(criterion.IsCriterionMet());
     
     //third countdown
-    criterion.NotifyTestAccuracy(0.5);
+    criterion.NotifyValidationAccuracy(0.5);
     
     EXPECT_TRUE(criterion.IsCriterionMet());
   }
@@ -77,7 +136,7 @@ namespace caffe {
 
     EXPECT_FALSE(criterion.IsCriterionMet());
 
-    criterion.NotifyTestAccuracy(0.5);
+    criterion.NotifyValidationAccuracy(0.5);
     EXPECT_TRUE(std::ifstream("learning_curve.txt"));
 
     criterion.NotifyIteration(run_every+1);
@@ -159,5 +218,7 @@ namespace caffe {
     //getting the pid of sleep should be false now, because it should have been killed
     EXPECT_NE(ret, 0);
   }
+
+
 
 }  // namespace caffe

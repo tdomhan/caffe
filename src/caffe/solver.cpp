@@ -2,7 +2,8 @@
 
 #include <cstdio>
 #include <ctime>
-#include <cstdlib> 
+#include <cstdlib>
+#include <cmath> 
 
 #include <algorithm>
 #include <string>
@@ -76,15 +77,25 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
     if (this->param_.termination_criterion().Get(i) == SolverParameter::MAX_ITER) {
       termination_criterions_[i].reset(new MaxIterTerminationCriterion<Dtype >(param_.max_iter()));
     } else if (this->param_.termination_criterion().Get(i) == SolverParameter::TEST_ACCURACY) {
-      CHECK(num_test_nets) << "Test network needed for TestAccuracyTerminationCriterion.";
+      CHECK(num_test_nets) << "Test network needed for TEST_ACCURACY termination criterion.";
       bool valid_net = false;
       for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
         if (test_nets_[test_net_id]->name() == "valid") {
           valid_net = true;
         }
       }
-      CHECK(valid_net) << "Network with the name 'valid' needed for TestAccuracyTerminationCriterion.";
+      CHECK(valid_net) << "Network with the name 'valid' needed for TEST_ACCURACY termination criterion.";
       termination_criterions_[i].reset(new TestAccuracyTerminationCriterion<Dtype >(param_.test_accuracy_stop_countdown()));
+    } else if (this->param_.termination_criterion().Get(i) == SolverParameter::DIVERGENCE_DETECTION) {
+      CHECK(num_test_nets) << "Test network needed for DIVERGENCE_DETECTION termination criterion.";
+      bool valid_net = false;
+      for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
+        if (test_nets_[test_net_id]->name() == "valid") {
+          valid_net = true;
+        }
+      }
+      CHECK(valid_net) << "Network with the name 'valid' needed for DIVERGENCE_DETECTION termination criterion.";
+      termination_criterions_[i].reset(new DivergenceDetectionTerminationCriterion<Dtype >());
     } else if (this->param_.termination_criterion().Get(i) == SolverParameter::EXTERNAL) {
       CHECK(param_.has_external_term_criterion_cmd()) << "external_term_criterion_cmd needed";
       CHECK(param_.has_external_term_criterion_num_iter()) << "external_term_criterion_num_iter needed";
@@ -226,8 +237,10 @@ void Solver<Dtype>::Test(const int test_net_id) {
   }
   if (test_nets_[test_net_id]->name() == "valid") {
     double valid_accuracy = test_score[0] / param_.test_iter().Get(test_net_id);
+    double valid_loss = test_score[1] / param_.test_iter().Get(test_net_id);
     for (int i=0; i < termination_criterions_.size(); i++) {
-      termination_criterions_[i]->NotifyTestAccuracy(valid_accuracy);
+      termination_criterions_[i]->NotifyValidationAccuracy(valid_accuracy);
+      termination_criterions_[i]->NotifyValidationLoss(valid_loss);
     }
   }
   Caffe::set_phase(Caffe::TRAIN);
@@ -403,9 +416,33 @@ template <typename Dtype>
 void MaxIterTerminationCriterion<Dtype >::NotifyIteration(int iter) {
   this->criterion_met_ = iter >= max_iter_;
 }
+
+template <typename Dtype>
+void DivergenceDetectionTerminationCriterion<Dtype >::NotifyValidationAccuracy(Dtype test_accuracy) {
+  if(!std::isfinite(test_accuracy)){
+    this->criterion_met_ = true;
+  }
+}
+
+template <typename Dtype>
+void DivergenceDetectionTerminationCriterion<Dtype >::NotifyValidationLoss(Dtype loss) {
+  if(!std::isfinite(loss)){
+    this->criterion_met_ = true;
+  } else {
+    if (!initial_loss_set_){
+      initial_loss_ = loss;
+      initial_loss_set_ = true;
+    } else {
+      //check whether the current loss is an order of magnitude bigger than the initial loss:
+      if(loss / initial_loss_ > 10) {
+        this->criterion_met_ = true;
+      }
+    }
+  }
+}
   
 template <typename Dtype>
-void TestAccuracyTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
+void TestAccuracyTerminationCriterion<Dtype >::NotifyValidationAccuracy(Dtype test_accuracy) {
   if (test_accuracy > best_accuracy_) {
     //reset countdown
     count_down_ = test_accuracy_stop_countdown_;
@@ -421,7 +458,6 @@ void TestAccuracyTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_acc
   }
 }
 
-
 template <typename Dtype>
 ExternalTerminationCriterion<Dtype >::ExternalTerminationCriterion(const std::string& cmd,
     int run_every_x_iterations)
@@ -431,7 +467,7 @@ ExternalTerminationCriterion<Dtype >::ExternalTerminationCriterion(const std::st
 }
 
 template <typename Dtype>
-void ExternalTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
+void ExternalTerminationCriterion<Dtype >::NotifyValidationAccuracy(Dtype test_accuracy) {
   learning_curve_file_ << test_accuracy << std::endl;
   learning_curve_file_.flush();
 }
@@ -488,7 +524,7 @@ ExternalRunInBackgroundTerminationCriterion<Dtype >::~ExternalRunInBackgroundTer
 }
 
 template <typename Dtype>
-void ExternalRunInBackgroundTerminationCriterion<Dtype >::NotifyTestAccuracy(Dtype test_accuracy) {
+void ExternalRunInBackgroundTerminationCriterion<Dtype >::NotifyValidationAccuracy(Dtype test_accuracy) {
   learning_curve_file_ << test_accuracy << std::endl;
   learning_curve_file_.flush();
 }

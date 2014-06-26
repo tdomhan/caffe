@@ -85,7 +85,9 @@ public:
   
   virtual bool IsCriterionMet() {return criterion_met_;};
 
-  virtual void NotifyTestAccuracy(Dtype test_accuracy) = 0;
+  virtual void NotifyValidationAccuracy(Dtype test_accuracy) = 0;
+
+  virtual void NotifyValidationLoss(Dtype loss) = 0;
 
   virtual void NotifyIteration(int iteration) = 0;
 protected:
@@ -97,11 +99,32 @@ class MaxIterTerminationCriterion : public TerminationCriterion<Dtype> {
 public:
   MaxIterTerminationCriterion(int max_iter) : max_iter_(max_iter) {};
 
-  virtual void NotifyTestAccuracy(Dtype test_accuracy) {};
+  virtual void NotifyValidationAccuracy(Dtype test_accuracy) {};
+
+  virtual void NotifyValidationLoss(Dtype loss) {};
   
   virtual void NotifyIteration(int iteration);
 private:
   int max_iter_;
+};
+
+template <typename Dtype>
+class DivergenceDetectionTerminationCriterion : public TerminationCriterion<Dtype> {
+  /**
+    Checks whether the training has diverged.
+  */
+public:
+  DivergenceDetectionTerminationCriterion() : initial_loss_set_(false){};
+  
+  virtual void NotifyValidationAccuracy(Dtype test_accuracy);
+
+  virtual void NotifyValidationLoss(Dtype loss);
+  
+  virtual void NotifyIteration(int iteration) {};
+  
+private:
+  Dtype initial_loss_;
+  bool initial_loss_set_;
 };
   
 template <typename Dtype>
@@ -112,7 +135,9 @@ public:
     count_down_(test_accuracy_stop_countdown),
     best_accuracy_(0.) {};
   
-  virtual void NotifyTestAccuracy(Dtype test_accuracy);
+  virtual void NotifyValidationAccuracy(Dtype test_accuracy);
+
+  virtual void NotifyValidationLoss(Dtype loss) {};
   
   virtual void NotifyIteration(int iteration) {};
   
@@ -127,7 +152,9 @@ class ExternalTerminationCriterion : public TerminationCriterion<Dtype> {
 public:
   ExternalTerminationCriterion(const std::string& cmd, int run_every_x_iterations);
   
-  virtual void NotifyTestAccuracy(Dtype test_accuracy);
+  virtual void NotifyValidationAccuracy(Dtype test_accuracy);
+
+  virtual void NotifyValidationLoss(Dtype loss) {};
   
   virtual void NotifyIteration(int iteration);
   
@@ -161,7 +188,9 @@ public:
   
   ~ExternalRunInBackgroundTerminationCriterion();
 
-  virtual void NotifyTestAccuracy(Dtype test_accuracy);
+  virtual void NotifyValidationAccuracy(Dtype test_accuracy);
+
+  virtual void NotifyValidationLoss(Dtype loss) {};
   
   virtual void NotifyIteration(int iteration);
   
